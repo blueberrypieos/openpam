@@ -1,0 +1,56 @@
+#!/usr/bin/make -f
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2026 The Blueberry Pie OS Authors
+
+include /usr/share/pietoolchain/rules.mk
+
+S       := $(SRCROOT)/openpam
+LIB     := openpam_borrow_cred openpam_configure openpam_dispatch openpam_dynamic \
+	openpam_findenv openpam_free_data openpam_free_envlist openpam_get_option \
+	openpam_load openpam_log openpam_nullconv openpam_readline openpam_restore_cred \
+	openpam_set_option openpam_static openpam_ttyconv pam_acct_mgmt pam_authenticate \
+	pam_chauthtok pam_close_session pam_end pam_error pam_get_authtok pam_get_data \
+	pam_get_item pam_get_user pam_getenv pam_getenvlist pam_info pam_open_session \
+	pam_prompt pam_putenv pam_set_data pam_set_item pam_setcred pam_setenv pam_start \
+	pam_strerror pam_verror pam_vinfo pam_vprompt
+SOURCES := debian/openpam_fallback.c $(patsubst %,openpam/lib/%.c,$(LIB)) debian/pam_unsetenv.c
+OBJS    := $(patsubst %.c,$(OBJ)/%.o,$(SOURCES))
+FLAGS   := $(BASE_CFLAGS) -DLIB_MAJ=2 -DOPENPAM_MODULES_DIR='"/usr/lib/pam/;/usr/local/lib/pam/"' \
+	-D_GNU_SOURCE -I$(S)/include -I$(S)/lib \
+	-isystem $(SDK)/usr/local/include
+DYLIB   := $(OBJ)/libpam.2.dylib
+MODULES := $(addprefix $(OBJ)/,pam_deny.so.2 pam_permit.so.2 pam_unix.so.2)
+MAN3    := $(filter-out %/pam_unsetenv.3,$(wildcard $(SRCROOT)/openpam/doc/man/*.3))
+
+all: $(DYLIB) $(MODULES)
+
+$(OBJ)/%.o: $(SRCROOT)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(FLAGS) -c $< -o $@
+
+$(DYLIB): $(OBJS)
+	$(CC) $(BASE_LDFLAGS) -dynamiclib -install_name /usr/lib/libpam.2.dylib \
+		-compatibility_version 3 -current_version 3 $(OBJS) -o $@
+
+define module
+$(OBJ)/$(1).so.2: $(OBJ)/openpam/modules/$(1)/$(1).o $(DYLIB)
+	$$(CC) $$(BASE_LDFLAGS) -dynamiclib -install_name /usr/lib/pam/$(1).so.2 $$^ -o $$@
+endef
+$(foreach m,pam_deny pam_permit pam_unix,$(eval $(call module,$(m))))
+
+install: all installhdrs
+	install -d $(ROOT)/usr/lib
+	install -m 755 $(DYLIB) $(ROOT)/usr/lib/
+	ln -sf libpam.2.dylib $(ROOT)/usr/lib/libpam.dylib
+	install -d $(ROOT)/usr/lib/pam $(ROOT)/etc/pam.d
+	install -m 755 $(MODULES) $(ROOT)/usr/lib/pam/
+	install -m 444 $(SRCROOT)/debian/pam.d-other $(ROOT)/etc/pam.d/other
+	install -d $(ROOT)/usr/share/man/man3 $(ROOT)/usr/share/man/man5
+	install -m 644 $(MAN3) $(ROOT)/usr/share/man/man3/
+	install -m 644 $(SRCROOT)/openpam/doc/man/pam.conf.5 $(ROOT)/usr/share/man/man5/
+
+installhdrs:
+	install -d $(ROOT)/usr/include/security
+	install -m 644 $(S)/include/security/*.h $(ROOT)/usr/include/security/
+
+.PHONY: all install installhdrs

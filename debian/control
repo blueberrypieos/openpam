@@ -1,0 +1,28 @@
+Source: openpam
+Section: libs
+Priority: optional
+Maintainer: Maxwell <maxwell@blueberrypieos.com>
+Build-Depends: pietoolchain (>= 0.1.0)
+Standards-Version: 4.7.3
+Homepage: https://github.com/apple-oss-distributions/OpenPAM
+Vcs-Git: https://github.com/blueberrypieos/openpam.git -b blueberry-pie-os/latest
+Vcs-Browser: https://github.com/blueberrypieos/openpam
+Rules-Requires-Root: no
+
+Package: openpam
+Architecture: darwin-arm64
+Essential: yes
+Priority: required
+Depends: libsystem
+Description: PAM library and pam_unix
+ OpenPAM's pluggable authentication library, the pam_deny, pam_permit
+ and pam_unix modules, default policy and manual pages.
+
+Package: openpam-dev
+Section: libdevel
+Priority: optional
+Architecture: darwin-arm64
+Depends: openpam (= ${binary:Version})
+Description: PAM library and pam_unix: development files
+ Public security headers for building PAM applications and modules.
+ The link-time libpam.dylib link is supplied by openpam.
